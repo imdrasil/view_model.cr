@@ -1,0 +1,16 @@
+name: view_model
+version: 0.1.0
+
+authors:
+  - Roman Kalnytskyi <moranibaca@gmail.com>
+
+crystal: 0.21.1
+
+license: MIT
+dependencies: 
+  kilt: 
+    github: jeromegn/kilt
+    version: ~> 0.4
+development_dependencies:
+  slang:
+    github: jeromegn/slang
