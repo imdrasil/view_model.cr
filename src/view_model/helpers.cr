@@ -9,6 +9,10 @@ module ViewModel
     # String::Builder
     #
 
+    def button_to(io : String::Builder, url, text, method = :get, html_options = {} of String => String)
+      raise "Not implemented"
+    end
+
     def form_tag(io : String::Builder, name, url, method = :get, html_options = {} of String => String, &block)
       builder = FormBuilder.new(io, name)
 
