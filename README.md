@@ -22,7 +22,7 @@ Putting page rendering into action class (like in kemalyst) could provide to cre
 
 To do that load ViewModel
 ```crystal
-requrie "view_model"
+require "view_model"
 require "kilt/slang" # or any other template engine supported by kilt
 ```
 
@@ -130,7 +130,7 @@ All macrosses are named after correspond methods with adding `_for` at the end.
 To build form with automatically generated names and ids of elements:
 
 ```slim
-- for_tag_for(:some_form, "/posts", :post) do |f|
+- form_tag_for(:some_form, "/posts", :post) do |f|
     p here could be some other html
     div
         - f.text_field :name
