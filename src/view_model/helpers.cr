@@ -2,8 +2,50 @@ module ViewModel
   struct FormBuilder
   end
 
+  # Includes all UI helper methods like tag helpers, partial definition
+  #
+  # NOTE: if you would like to make several level of module inclusion you should include this module
+  # in each module in a hierarchy.
   module Helpers
     INPUT_FIELDS = [:hidden, :text, :submit, :file, :password, :checkbox, :radio, :time, :date, :number]
+
+    # Defines method for rendering partial.
+    macro def_partial(name, *args)
+    end
+
+    private macro render_def_partial
+      # :nodoc:
+      macro def_partial(name, *args)
+        \{%
+          file_name = __FILE__.split("/")[-1].gsub(/_view\.cr$|\.cr$/, "").id
+          path = __DIR__.id
+          extension = (@type.constant("TEMPLATE_ENGINE") || ::ViewModel::Config.constant("TEMPLATE_ENGINE") || "slang").id
+        %}
+
+        private def \{{name.id}}(__kilt_io__\{% if args.size > 0 %}, \{{args.splat}} \{% end %})
+          Kilt.embed "\{{path}}/\{{file_name}}/_\{{name.id}}.\{{extension}}"
+        end
+
+        def \{{name.id}}(\{{args.splat}})
+          String.build do |io|
+            \{{name.id}}(io\{% if args.size > 0 %}, \{{args.splat}} \{% end %})
+          end
+        end
+      end
+    end
+
+    macro included
+      macro inherited
+        render_def_partial
+      end
+
+      render_def_partial
+    end
+
+    # Renders partial with name *name* and passes *args* to it.
+    macro render_partial(name, *args)
+      {{name.id}}(__kilt_io__, *{{args}})
+    end
 
     #
     # String::Builder

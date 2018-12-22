@@ -5,4 +5,4 @@ h2 some title
 - label_tag_for "Me"
 - select_tag_for([[1, "v1"], [2, "v2"]])
 - text_area_for("some value")
-- hidden_tag_for({"value" => "hidden1"}) 
+- hidden_tag_for({"value" => "hidden1"})

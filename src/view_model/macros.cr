@@ -1,5 +1,5 @@
 module ViewModel
-  module Macrosses
+  module Macros
     macro form_tag_for(name, url, method = :get, html_options = {} of String => String, &block)
       form_tag(__kilt_io__, {{name}}, {{url}}, {{method}}, {{html_options}}) {{block}}
     end
