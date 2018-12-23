@@ -3,7 +3,6 @@ require "./helpers"
 module ViewModel
   abstract class Base
     include Helpers
-    include Macros
 
     private abstract def content(io)
     private abstract def layout(&block)

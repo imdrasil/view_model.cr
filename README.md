@@ -123,21 +123,15 @@ To render a partial use `.render_partial` macro:
 
 ### Html helpers
 
-Also this shard provided html generating helper methods for some tags. They look like in the rails `action_view` but because of crystal template rendering mechanism works in slightly in another way.
-
-There are two modules:
-- `Helpers` - includes all methods to generate tags and form;
-- `Macros` - includes macros to simplify calling helper methods with string builder inside of view (useful inside of templates).
-
-All helper methods have 2 variant: using given string builder to append content and just returning string. First one are much more effective so prefer to use it.
+Also this shard provides HTML helper methods. All methods are automatically included in `ViewModel::Base`.
 
 Methods description:
-- `form_tag` - yields `FormBuilder` to generate flexible forms; append `_method` hidden input if given method is not `get` or `post`
-- `content_tag` - builds given tag; could accept block
+
+- `content_tag` - builds given tag with given options; could accept block for nested content
 - `link_to` - builds `a` tag
 - `label_tag` - builds `label`
-- `select_tag` - builds `select` tag; automatically generates `option` for given array
-- `text_area_tag` - builds `text_area`
+- `select_tag` - builds `select` tag; automatically generates `option` tags for given array
+- `text_area_tag`
 - `hidden_tag`
 - `text_tag`
 - `submit_tag`
@@ -149,14 +143,12 @@ Methods description:
 - `date_tag`
 - `number_tag`
 
-All macros are named after correspond methods with adding `_for` at the end.
-
 #### FormBuilder
 
-To build form with automatically generated names and ids of inputs:
+To build form with automatically generated names and ids of inputs :
 
 ```slang
-- form_tag_for(:some_form, "/posts", :post) do |f|
+- build_form(:some_form, "/posts", :post) do |f|
     p here could be some other html
     div
       - f.text_field :name
@@ -164,7 +156,29 @@ To build form with automatically generated names and ids of inputs:
     - f.submit "Save"
 ```
 
-Because crystal loads template and build it inside of methods using `String::Builder` to generate content `-` should be used instead of `=` - content will be added to builder inside of method so there is no need to do it manually.
+`.build_form` macro creates `ViewModel::FormBuilder` and passes it to the block. Form builder provides a set of methods similar to ones described above. All inputs will get own id and class based on it's name.
+
+All form builder methods manipulate `__kilt_io__` directly and returns `nil` so it isn't important the way to call them: with `-`, `=` or `==`.
+
+If you specify a form method different from `get` and `post` - form builder will add additional hidden input with name `_method` for the given method and set current form method to `post`.
+
+### link_to
+
+Also HTML helper includes `.link_to` macro. It allows to generate `<a>` tag with all needed data.
+
+```slang
+== link_to "Show", "/posts/23", { "class" => "special-link" }
+
+== link_to "/order/12" do
+  span
+    b Open
+```
+
+If you want to make a link to do a non-GET request (e.g. delete button), you can specify `method` argument and additionally load `libs/view_model/assets/view_model.js` file.
+
+```slang
+== link_to "delete", "/comments/56", :delete
+```
 
 ## Development
 
@@ -173,7 +187,6 @@ There are still a lot of work to do. Tasks for next versions:
 - [ ] add spec matchers
 - [ ] add more html helpers
 - [ ] add array support in name generation
-- [ ] add `button_to`
 
 ## Contributing
 

@@ -1,4 +1,4 @@
-- form_tag_for(:comment, "/comments", :put) do |f|
+- build_form(:comment, "/comments", :put) do |f|
 	p asd
 	div
 		- f.text_field :name
