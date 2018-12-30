@@ -9,14 +9,14 @@ end
 class MockView
   include ViewModel::Helpers
 
-  def __build_form(name, url, method = :get, html_options = {} of String => String)
+  def __build_form(name, url, html_options = {} of String => String, method = :get)
     String.build do |__kilt_io__|
-      build_form(name, url, method, html_options) { |f| yield f }
+      build_form(name, url, html_options, method) { |f| yield f }
     end
   end
 
   def __link_to(path, text = nil, method = nil, html_options = {} of String => String)
-    link_to(path, text, method, html_options)
+    link_to(path, text, html_options, method)
   end
 
   def __link_to(path, method = nil, html_options = {} of String => String, &block)
@@ -78,7 +78,7 @@ describe ViewModel::Helpers do
 
   describe ".build_form" do
     it "builds form" do
-      (obj.__build_form(:name, "/") {}).should eq("<form class=\"name_form\" id=\"name_form\" action=\"/\" method=\"get\" ></form>")
+      (obj.__build_form(:name, "/") {}).should eq("<form class=\"name-form\" id=\"name_form\" action=\"/\" method=\"get\" ></form>")
     end
 
     context "with custom form builder" do

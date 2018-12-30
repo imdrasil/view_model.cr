@@ -36,7 +36,7 @@ describe ViewModel::FormBuilder do
     end
 
     it "adds generated class" do
-      build_form { |f| f.render { } }.should match(/class="test_form"/)
+      build_form { |f| f.render { } }.should match(/class="test-form"/)
     end
 
     it "adds generated id" do
@@ -117,12 +117,24 @@ describe ViewModel::FormBuilder do
       field.should match(Regex.new(">#{value}<"))
     end
 
+    it "escapes link text" do
+      String.build { |io| build_form(io).label_for(:field, "<span>text<span>") }
+        .should eq("<label for=\"field\" >&lt;span&gt;text&lt;span&gt;</label>")
+    end
+
     it "renders given html options" do
       field.should match(Regex.new("class=\"#{klass}\""))
     end
 
     it "renders tag" do
       field.should match(/<label.*>/)
+    end
+
+    context "with block" do
+      it do
+        String.build { |io| build_form(io).label_for(:field) { |io| io << "<span>text<span>" } }
+          .should eq("<label for=\"field\" ><span>text<span></label>")
+      end
     end
   end
 
@@ -166,8 +178,8 @@ describe ViewModel::FormBuilder do
     end
   end
 
-  describe "#text_area" do
-    field = String.build { |s| build_form(s).text_area(:area_field, value, {"class" => klass}) }
+  describe "#text_area_field" do
+    field = String.build { |s| build_form(s).text_area_field(:area_field, value, {"class" => klass}) }
 
     it "renders id" do
       field.should match(/id="test_area_field_id"/)
@@ -186,7 +198,7 @@ describe ViewModel::FormBuilder do
     end
 
     it "renders tag" do
-      field.should match(/<text_area.*>/)
+      field.should match(/<textarea.*>/)
     end
   end
 

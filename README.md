@@ -128,7 +128,7 @@ Also this shard provides HTML helper methods. All methods are automatically incl
 Methods description:
 
 - `content_tag` - builds given tag with given options; could accept block for nested content
-- `link_to` - builds `a` tag
+- `link_to` - builds link
 - `label_tag` - builds `label`
 - `select_tag` - builds `select` tag; automatically generates `option` tags for given array
 - `text_area_tag`
@@ -137,6 +137,7 @@ Methods description:
 - `submit_tag`
 - `file_tag`
 - `password_tag`
+- `email_tag`
 - `checkbox_tag`
 - `radio_tag`
 - `time_tag`

@@ -1,6 +1,6 @@
 module ViewModel
   module FormTags
-    INPUT_FIELDS = %i(hidden text submit file password checkbox radio time date number)
+    INPUT_FIELDS = %i(hidden text submit file password email checkbox radio time date number)
 
     alias SHash = Hash(String, String)
 
@@ -36,9 +36,14 @@ module ViewModel
       end
     {% end %}
 
-    def label_tag(io : String::Builder, text = nil, _for : Symbol | String? = nil, html_options = SHash.new)
-      html_options["for"] = _for.to_s if _for
-      content_tag(io, :label, html_options) { io << text if text }
+    def label_tag(io : String::Builder, text, for : Symbol | String? = nil, html_options = SHash.new)
+      html_options["for"] = for.to_s if for
+      content_tag(io, :label, html_options) { io << HTML.escape(text) if text }
+    end
+
+    def label_tag(io : String::Builder, for : Symbol | String? = nil, html_options = SHash.new, &block)
+      html_options["for"] = for.to_s if for
+      content_tag(io, :label, html_options) { yield io }
     end
 
     def select_tag(io : String::Builder, name : String | Symbol, options : Array(Array), value = nil, html_options = SHash.new)
@@ -56,7 +61,7 @@ module ViewModel
     end
 
     def text_area_tag(io : String::Builder, name, text = "", html_options = {} of String => String)
-      content_tag(io, :text_area, { "name" => name }.merge(html_options)) do
+      content_tag(io, :textarea, { "name" => name }.merge(html_options)) do
         io << HTML.escape(text)
       end
     end
@@ -79,8 +84,12 @@ module ViewModel
       end
     {% end %}
 
-    def label_tag(text = nil, _for : Symbol | String? = nil, html_options = {} of String => String)
-      String.build { |s| label_tag(s, text, _for, html_options) }
+    def label_tag(text, for : Symbol | String? = nil, html_options = {} of String => String)
+      String.build { |s| label_tag(s, text, for, html_options) }
+    end
+
+    def label_tag(for : Symbol | String? = nil, html_options = SHash.new, &block)
+      String.build { |s| label_tag(s, text, _for, html_options) { yield s } }
     end
 
     def select_tag(name, options : Array(Array), value = nil, html_options = {} of String => String)

@@ -48,16 +48,33 @@ module ViewModel
       TEMPLATE_ENGINE = {{engine}}
     end
 
+    # Generates getters and constructor for the given properties.
+    #
+    # Accepts splatted tuple of field declarations.
+    #
+    # ```
+    # class Users::ShowView < ApplicationView
+    #   model user : User, page : Int32
+    #
+    #   # generates
+    #   #
+    #   # getter user : User, page : Int32
+    #   #
+    #   # def initialize(@user, @page, *args)
+    #   #   super(*args)
+    #   # end
+    # end
+    # ```
     macro model(*args)
-      {% for definition in args %}
-        getter {{definition}}
-      {% end %}
+      getter {{args.splat}}
 
-      def initialize({{args.map { |var| "@#{var.var}".id }.splat}})
+      def initialize({{args.map { |var| "@#{var.var}".id }.splat}}, *args)
+        super(*args)
       end
     end
 
     macro inherited
+      # :nodoc:
       macro compile_layout(path)
         private def layout(&block)
           String.build do |__kilt_io__|

@@ -5,7 +5,7 @@ require "./view_model/form_builder"
 require "./view_model/base"
 
 module ViewModel
-  VERSION = "0.1.0"
+  VERSION = "0.2.0"
 
   class_property default_form_builder : ::ViewModel::FormBuilder.class = ::ViewModel::FormBuilder
 
