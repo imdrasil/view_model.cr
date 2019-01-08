@@ -1,6 +1,6 @@
 # ViewModel [![Build Status](https://travis-ci.org/imdrasil/view_model.cr.svg)](https://travis-ci.org/imdrasil/view_model.cr)
 
-ViewModel pattern implementation with simple and effective form builder.
+ViewModel pattern implementation with simple and effective form builder and view helpers.
 
 ## Installation
 
@@ -18,138 +18,176 @@ It uses `kilt` for template rendering so you also need to add template engine yo
 
 ### ViewModel
 
-Putting page rendering into action class (like in kemalyst) could provide to creating fat helpers (like in rails) or putting a lot of view logic into itself or template. So much more suitable alternative will be have separate class which knows how to render corresponding object for some case (action or part of a page) and includes all representation logic.
+Putting page rendering into action class ends with having fat helpers (like in rails) or putting a lot of view logic inside of templates. Also lack of native reusability in kilt makes you to define local variables with right name to be able to reuse them in a partials. Therefor much more suitable alternative is to have a separate class which encapsulates specific logic for a corresponding view. For such purpose this shard is created.
 
 To do that load ViewModel
+
 ```crystal
 require "view_model"
 require "kilt/slang" # or any other template engine supported by kilt
 ```
 
-Adds `views` folder under your `src` where all classes and templates will be defined. Also root location could be customized:
+Create a base view class:
 
 ```crystal
-ViewModel::Config.view_path "spec/fixtures"
-```
-
-Here is example of folders structure:
-
-```
-src
-├── views
-│   ├── comment
-│   │   ├── index.slang
-│   │   ├── show.slang
-│   ├── post
-│   │   ├── index.slang
-│   ├── comment_view.cr
-│   ├── post_view.cr
-```
-
-All view models are named like `<model name>_view.cr`. Here is example of such classes:
-
-```crystal
-class CommentView < ViewModel::Base
-  def_template index
-  def_template show
+class ApplicationView < ViewModel::Base
 end
+```
 
-class PostView < ViewModel::Base
-  template_path "spec/fixtures"
-  getter model : Post
-  
-  delegate some_method, to: model
-  
-  def_template index do
-    template + "123"
+By default layout path is `"src/views/layouts/layout.slang"` but this can be easily redefined by `.layout` macro:
+
+```crystal
+class ApplicationView < ViewModel::Base
+  layout "app/views/layouts/layout"
+end
+```
+
+> Pay special attention - layout path doesn't include file extension.
+
+If you'd like to render your view without a layout - pass `false` as an argument.
+
+Next define specified layout:
+
+```slang
+html
+  head
+    title Page title
+  body
+    - yield_content
+```
+
+`yield_content` macro is just a alias for `yield(__kilt_io__)` - it yields `IO` to view `#content` method which renders content.
+
+Now we can specify a view class.
+
+```crystal
+# src/views/posts/show_view.cr
+module Posts
+  class ShowView < ViewModel::Base
+    model post : Post
+
+    delegate :title, :content, to: post
   end
 end
 ```
 
-To create object of view-model you should pass object being rendered to constructor
+`.model` macro creates getter for given attributes and generates constructor accepting them.
 
-```crystal
-c = Comment.new
-CommentView.new(c)
-```
-By default view-model will suppose that it will get object of class named same as it but without "View" part. This could be override adding to class definition direct declaration of `getter model : Post`. `model` - getter which give access to passed object. Also template location path for particular class could be redefined inside of it.
+Content for a post object:
 
-To declare actions that could be rendered use `def_template` macros which accepts name of action and optional block. Template for action will be loaded from file named after action located inside of the folder named after it at the same level.
-
-Given block could access the rendered template via `template` local variable.
-
-Render action of such view-model anywhere is easy - just add:
-```crystal
-c = Comment.new
-view("comment", :index, c)
+```slang
+.header
+  h3 = title
+.content
+  = content
 ```
 
-`view` macros accepts 3 arguments: view-model name (without view part), action and object to represent.
+By a convention this template file should be located in `<view_class_folder>/<view_class_name_without_view/content.slang>`, in our case it will be `src/views/posts/show/content.slang`.
 
-To render collection use
+For a view rendering `.view` macro can be used - just pass view name and required arguments:
 
 ```crystal
- c = [Comment.new, Comment.new]
- collection_view(:comment, :index, c)
+view("posts/show", post)
+# or for a collection
+collection_view("posts/show", posts)
 ```
 
-It will render each given object and concatenate all results.
+### Partials
+
+If you would like to define some shared templates or separate your view into several partials use `.def_partial` macro:
+
+```crystal
+module SharedPartials
+  include ViewModel::Helpers
+
+  def_partial button, color
+end
+
+module Posts
+  class ShowView < ApplicationView
+    include SharedPartials
+
+    def_partial body
+  end
+end
+```
+
+If you need to define a module with partials - include `ViewModel::Helpers` module into it. `.def_partial` accepts partial name as a first argument and partial arguments as all others. All partial template paths are calculated same was as for content files of view objects. The only difference is that partial files name has a `_` symbol prefix: `src/views/shared_partials/_button.slang`.
+
+To render a partial use `.render_partial` macro:
+
+```slang
+.buttons
+  - render_partial :button, :read
+```
 
 ### Html helpers
 
-Also this shard provided html generating helper methods for some tags. They look like in the rails `action_view` but because of crystal template rendering mechanism works in slightly in another way.
-
-There are two modules: 
-- `Helers` - includes all methods to generate tags and form;
-- `Macrosses` - includes macrosses to simplify calling helper methods with string builder inside of view (useful inside of templates.
-
-All helper methods have 2 variant: using given string builder to append content and just returning string. First one are much more effective so prefer to use it.
+Also this shard provides HTML helper methods. All methods are automatically included in `ViewModel::Base`.
 
 Methods description:
-- `form_tag` - yields `FormBuilder` to generate flexible forms; append `_method` hidden input if given method is not `get` or `post`
-- `content_tag` - builds given tag; could accept block
-- `link_to` - builds `a` tag
+
+- `content_tag` - builds given tag with given options; could accept block for nested content
+- `link_to` - builds link
 - `label_tag` - builds `label`
-- `select_tag` - builds `select` tag; automatically generates `option` for given array
-- `text_area_tag` - builds `text_are`
+- `select_tag` - builds `select` tag; automatically generates `option` tags for given array
+- `text_area_tag`
 - `hidden_tag`
 - `text_tag`
 - `submit_tag`
 - `file_tag`
 - `password_tag`
+- `email_tag`
 - `checkbox_tag`
 - `radio_tag`
 - `time_tag`
 - `date_tag`
 - `number_tag`
 
-All macrosses are named after correspond methods with adding `_for` at the end.
-
 #### FormBuilder
 
-To build form with automatically generated names and ids of elements:
+To build form with automatically generated names and ids of inputs :
 
-```slim
-- form_tag_for(:some_form, "/posts", :post) do |f|
+```slang
+- build_form(:some_form, "/posts", :post) do |f|
     p here could be some other html
     div
-        - f.text_field :name
+      - f.text_field :name
     - f.select_field :tag, [[1, "crystal"], [2, "ruby"]], 1
     - f.submit "Save"
 ```
 
-Because crystal loads template and build it inside of methods using `String::Builder` to generate content `-` should be used instead of `=` - content will be added to builder inside of method so there is no need to do it manually.
+`.build_form` macro creates `ViewModel::FormBuilder` and passes it to the block. Form builder provides a set of methods similar to ones described above. All inputs will get own id and class based on it's name.
+
+All form builder methods manipulate `__kilt_io__` directly and returns `nil` so it isn't important the way to call them: with `-`, `=` or `==`.
+
+If you specify a form method different from `get` and `post` - form builder will add additional hidden input with name `_method` for the given method and set current form method to `post`.
+
+### link_to
+
+Also HTML helper includes `.link_to` macro. It allows to generate `<a>` tag with all needed data.
+
+```slang
+== link_to "Show", "/posts/23", { "class" => "special-link" }
+
+== link_to "/order/12" do
+  span
+    b Open
+```
+
+If you want to make a link to do a non-GET request (e.g. delete button), you can specify `method` argument and additionally load `libs/view_model/assets/view_model.js` file.
+
+```slang
+== link_to "delete", "/comments/56", :delete
+```
 
 ## Development
 
 There are still a lot of work to do. Tasks for next versions:
 
-- [ ] add spec2 matchers
-- [ ] rewrite to use spec2
+- [ ] add spec matchers
 - [ ] add more html helpers
-- [ ] add `multiple` support for select
 - [ ] add array support in name generation
-- [ ] add `button_to`
 
 ## Contributing
 
@@ -163,7 +201,7 @@ Please ask me before starting work on smth.
 
 Also if you want to use it in your application (for now shard is almost ready for use in production) - ping me please, my email you can find in my profile.
 
-To run test use regular `crystal spec`. 
+To run test use regular `crystal spec`.
 
 ## Contributors
 

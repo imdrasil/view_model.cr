@@ -1,156 +1,113 @@
+require "./form_builder"
+
 module ViewModel
-  struct FormBuilder
-  end
-
+  # Includes all UI helper methods like tag helpers, partial definition and rendering.
+  #
+  # NOTE: if you would like to make several level of module inclusion you should include this module
+  # in each module in a hierarchy.
   module Helpers
-    INPUT_FIELDS = [:hidden, :text, :submit, :file, :password, :checkbox, :radio, :time, :date, :number]
+    include FormTags
 
+    # Defines method for rendering partial.
     #
-    # String::Builder
+    # ```
+    # module Partials
+    #   include ViewModel::Helpers
     #
-
-    def button_to(io : String::Builder, url, text, method = :get, html_options = {} of String => String)
-      raise "Not implemented"
+    #   def_partial :without_argument
+    #
+    #   def_partial :with, argument
+    # end
+    # ```
+    macro def_partial(name, *args)
     end
 
-    def form_tag(io : String::Builder, name, url, method = :get, html_options = {} of String => String, &block)
-      builder = FormBuilder.new(io, name)
+    private macro render_def_partial
+      # :nodoc:
+      macro def_partial(name, *args)
+        \{%
+          file_name = __FILE__.split("/")[-1].gsub(/_view\.cr$|\.cr$/, "").id
+          extension = (@type.constant("TEMPLATE_ENGINE") || ::ViewModel::Config.constant("TEMPLATE_ENGINE") || "slang").id
+        %}
 
-      html_options["action"] = url
-      simple = (method == :get || method == :post)
-      html_options["action"] = simple ? method.to_s : "post"
-      content_tag(io, :form, html_options) do
-        unless simple
-          hidden_tag(io, {"name" => "_method", "value" => method.to_s})
+        private def \{{name.id}}(__kilt_io__ : String::Builder\{% if args.size > 0 %}, \{{args.splat}} \{% end %})
+          Kilt.embed "\{{__DIR__.id}}/\{{file_name}}/_\{{name.id}}.\{{extension}}"
         end
-        yield(builder)
-      end
-    end
 
-    def content_tag(io : String::Builder, tag, html_options = {} of String => String)
-      io << "<" << tag << " "
-      html_options.each do |k, v|
-        io << k << %(=") << v << %(" )
-      end
-      io << "/>"
-    end
-
-    def content_tag(io : String::Builder, tag, html_options = {} of String => String, &block)
-      io << "<" << tag << " "
-      html_options.each do |k, v|
-        io << k << %(=") << v << %(" )
-      end
-      io << ">"
-      yield(io)
-      io << "</" << tag << ">"
-    end
-
-    def link_to(io : String::Builder, path, text = nil, html_options = {} of String => String)
-      html_options["href"] = path
-      content_tag(io, :a, html_options) { io << text if text }
-    end
-
-    {% for tag in INPUT_FIELDS %}
-      def {{tag.id}}_tag(io : String::Builder, options = {} of String => String)
-        content_tag(io, :input, {"type" => "{{tag.id}}"}.merge(options))
-      end
-    {% end %}
-
-    def label_tag(io : String::Builder, text = nil, _for : Symbol | String? = nil, html_options = {} of String => String)
-      html_options["for"] = _for.to_s if _for
-      content_tag(io, :label, html_options) { io << text if text }
-    end
-
-    def select_tag(io : String::Builder, options : Array(Array), html_options = {} of String => String)
-      selected = html_options.delete("value")
-      content_tag(io, :select, html_options) do
-        options.each do |row|
-          io << %(<option value=") << row[0]
-          if selected && selected == row[0].to_s
-            io << %(" selected>)
-          else
-            io << %(">)
+        def \{{name.id}}(\{{args.splat}})
+          String.build do |io|
+            \{{name.id}}(io\{% if args.size > 0 %}, \{{args.splat}} \{% end %})
           end
-          io << row[1] << "</option>"
         end
       end
     end
 
-    def text_area_tag(io : String::Builder, text = "", html_options = {} of String => String)
-      content_tag(io, :text_area, html_options) do
-        io << text
+    macro included
+      macro inherited
+        render_def_partial
       end
+
+      render_def_partial
     end
 
+    # Renders partial with name *name* and passes *args* to it.
+    macro render_partial(name, *args)
+      {{name.id}}(__kilt_io__{% if args.size > 0 %}, {{args.splat}} {% end %})
+    end
+
+    # Creates a link tag of the given *text* using URL given in the *path* argument.
     #
-    # String
+    # You can pass a block instead of *text*
     #
-
-    def form_tag(name, url, method = :get, html_options = {} of String => String, &block)
-      String.build do |io|
-        builder = FormBuilder.new(io, name)
-
-        io << %(<form action=") << url << %(" )
-        html_options.each do |k, v|
-          io << k << %(=") << v << %(" )
-        end
-
-        simple = (method == :get || method == :post)
-        io << %( method=")
-        if simple
-          io << method << %(" )
-        else
-          io << %(post")
-        end
-
-        io << ">"
-        unless simple
-          hidden_tag(io, {"name" => "_method", "value" => method.to_s})
-        end
-
-        yield(builder)
-        io << "</form>"
-      end
+    # ```text
+    # - link_to "/users/2", "First Last Name", { "class" => "btn btn-small" }
+    #
+    # - link_to "/users/2", "delete", method: :delete
+    #
+    # - link_to "/users/2" do
+    #   span Open
+    # ```
+    #
+    # *method* option allows to make a `DELETE` request. Also to achieve this you should include js script
+    # located in the `assets` directory.
+    macro link_to(path, text = "", html_options = {} of String => String, method = nil, io_variable = __kilt_io__, &block)
+      {% if block.is_a?(Block) %}
+        __link_to__({{io_variable}}, {{path}}, {{html_options}}, {{method}}) {{block}}
+      {% else %}
+        String.build { |io| __link_to__(io, {{path}}, {{text}}, {{html_options}}, {{method}}) }
+      {% end %}
     end
 
-    def content_tag(tag, html_options : Hash, &block)
-      String.build { |s| content_tag(s, tag, html_options) { |io| yield(io) } }
+    # Creates form builder and yields it to the block.
+    #
+    # It is important not to print macro invocation to the general builder.
+    #
+    # ```text
+    # - build_form :session, { "class" => "form new-form" } do |f|
+    #   p
+    #     - f.label :email, "Email"
+    #     - f.email_field :email
+    #   p
+    #     - f.label :password, "Password"
+    #     - f.password_field :password
+    # ```
+    macro build_form(name, url, html_options = {} of String => String, method = :post, io_variable = __kilt_io__, &block)
+      __build_form__({{io_variable}}, {{name}}, {{url}}, {{html_options}}, {{method}}) {{block}}
     end
 
-    def content_tag(tag, html_options : Hash)
-      String.build { |s| content_tag(s, tag, html_options) }
+    private def __link_to__(io : String::Builder, path : String, text : String = "", html_options : Hash = {} of String => String, method : String | Symbol? = nil)
+      __link_to__(io, path, html_options, method) { io << HTML.escape(text) }
     end
 
-    def link_to(path, text = nil, html_options = {} of String => String)
+    private def __link_to__(io : String::Builder, path : String, html_options : Hash = {} of String => String, method : String | Symbol? = nil, &block)
       html_options["href"] = path
-      content_tag(:a, html_options) { |io| io << text if text }
+      html_options["data-method"] = method.to_s if method
+      content_tag(io, :a, html_options) { yield io }
     end
 
-    {% for tag in INPUT_FIELDS %}
-      def {{tag.id}}_tag(options = {} of String => String)
-        content_tag(:input, {"type" => "{{tag.id}}"}.merge(options))
-      end
-    {% end %}
-
-    def label_tag(text = nil, _for : Symbol | String? = nil, html_options = {} of String => String)
-      String.build { |s| label_tag(s, text, _for, html_options) }
-    end
-
-    def select_tag(options : Array(Array), html_options = {} of String => String)
-      selected = html_options.delete("value")
-      content_tag(io, :select, html_options) do
-        options.each do |row|
-          io << %(<option value=") << row[0]
-          io << " selected" if selected && selected == row[0].to_s
-          io << %(">) << row[1] << "</option>"
-        end
-      end
-    end
-
-    def text_area_tag(text, html_options = {} of String => String)
-      content_tag(io, :text_area, html_options) do
-        io << text
-      end
+    private def __build_form__(io : String::Builder, name, url : String, html_options : Hash = {} of String => String, method = :post)
+      builder = ::ViewModel.default_form_builder.new(io, name, url, method, html_options)
+      builder.render { yield builder }
     end
   end
 end

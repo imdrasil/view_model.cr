@@ -1,80 +1,86 @@
 require "../spec_helper"
 
+def build_form(io, name = :test, url = "/", method = :post)
+  ViewModel::FormBuilder.new(io, name, url, method)
+end
+
+def build_form(name = :test, url = "/", method = :post, &block)
+  String.build { |io| yield build_form(io, name, url, method) }
+end
+
+macro behaves_like_form_input(name, value, type, form_name = test)
+  it "renders id" do
+    field.should match(/id="{{form_name.id}}_{{name.id}}_id"/)
+  end
+
+  it "renders value" do
+    field.should match(Regex.new("value=\"#{ {{value}} }\""))
+  end
+
+  it "renders name" do
+    field.should match(/name="{{form_name.id}}\[{{name.id}}\]"/)
+  end
+
+  it "renders tag" do
+    field.should match(/<input type="{{type.id}}".*\/>/)
+  end
+end
+
 describe ViewModel::FormBuilder do
   klass = "my super text"
   value = "some value"
 
-  context "#text_field" do
-    field = String.build { |s| ViewModel::FormBuilder.new(s, :test).text_field(:text, value, {"class" => klass}) }
-    it "renders id" do
-      field.should match(/id="test_text_id"/)
+  describe "#render" do
+    it "wraps content into form tag" do
+      build_form { |f| f.render { } }.should match(/<form.*><\/form>/)
     end
 
-    it "renders value" do
-      field.should match(Regex.new("value=\"#{value}\""))
+    it "adds generated class" do
+      build_form { |f| f.render { } }.should match(/class="test-form"/)
     end
+
+    it "adds generated id" do
+      build_form { |f| f.render { } }.should match(/id="test_form"/)
+    end
+
+    it "adds additional hidden tag if form method is not natively supported by browser" do
+      build_form(method: :delete) { |f| f.render { } }.should match(/<input type="hidden" name="_method" value="delete"/)
+    end
+  end
+
+  describe "#text_field" do
+    field = String.build { |s| build_form(s).text_field(:text, value, {"class" => klass}) }
+
+    behaves_like_form_input(:text, value, :text)
 
     it "renders given html options" do
       field.should match(Regex.new("class=\"#{klass}\""))
     end
-
-    it "renders name" do
-      field.should match(/name="test\[text\]"/)
-    end
-
-    it "renders tag" do
-      field.should match(/<input type="text".*\/>/)
-    end
   end
 
-  context "#hidden_field" do
-    field = String.build { |s| ViewModel::FormBuilder.new(s, :test).hidden_field(:hidden_field, value, {"class" => klass}) }
-    it "renders id" do
-      field.should match(/id="test_hidden_field_id"/)
-    end
+  describe "#hidden_field" do
+    field = String.build { |s| build_form(s).hidden_field(:hidden_field, value, {"class" => klass}) }
 
-    it "renders value" do
-      field.should match(Regex.new("value=\"#{value}\""))
-    end
-
-    it "renders name" do
-      field.should match(/name="test\[hidden_field\]"/)
-    end
+    behaves_like_form_input(:hidden_field, value, :hidden)
 
     it "renders given html options" do
       field.should match(Regex.new("class=\"#{klass}\""))
     end
-
-    it "renders tag" do
-      field.should match(/<input type="hidden".*\/>/)
-    end
   end
 
-  context "#submit" do
-    field = String.build { |s| ViewModel::FormBuilder.new(s, :test).submit(value, {"class" => klass}) }
-    it "renders id" do
-      field.should match(/id="test_commit_id"/)
-    end
+  describe "#submit" do
+    field = String.build { |s| build_form(s).submit(value, {"class" => klass}) }
 
-    it "renders value" do
-      field.should match(Regex.new("value=\"#{value}\""))
-    end
-
-    it "renders name" do
-      field.should match(/name="test\[commit\]"/)
-    end
+    behaves_like_form_input(:commit, value, :submit)
 
     it "renders given html options" do
       field.should match(Regex.new("class=\"#{klass}\""))
     end
-
-    it "renders tag" do
-      field.should match(/<input type="submit".*\/>/)
-    end
   end
 
-  context "#select_field" do
-    field = String.build { |s| ViewModel::FormBuilder.new(s, :test).select_field(:select_field, [[1, "op1"], [2, "op2"]], 1, {"class" => klass}) }
+  describe "#select_field" do
+    field = String.build { |s| build_form(s).select_field(:select_field, [[1, "op1"], [2, "op2"]], 1, {"class" => klass}) }
+
     it "renders id" do
       field.should match(/id="test_select_field_id"/)
     end
@@ -100,14 +106,20 @@ describe ViewModel::FormBuilder do
     end
   end
 
-  context "#label_for" do
-    field = String.build { |s| ViewModel::FormBuilder.new(s, :test).label_for(:label_field, value, {"class" => klass}) }
+  describe "#label_for" do
+    field = String.build { |s| build_form(s).label_for(:label_field, value, {"class" => klass}) }
+
     it "renders for" do
       field.should match(/for="label_field"/)
     end
 
     it "renders text" do
       field.should match(Regex.new(">#{value}<"))
+    end
+
+    it "escapes link text" do
+      String.build { |io| build_form(io).label_for(:field, "<span>text<span>") }
+        .should eq("<label for=\"field\" >&lt;span&gt;text&lt;span&gt;</label>")
     end
 
     it "renders given html options" do
@@ -117,10 +129,18 @@ describe ViewModel::FormBuilder do
     it "renders tag" do
       field.should match(/<label.*>/)
     end
+
+    context "with block" do
+      it do
+        String.build { |io| build_form(io).label_for(:field) { |io| io << "<span>text<span>" } }
+          .should eq("<label for=\"field\" ><span>text<span></label>")
+      end
+    end
   end
 
-  context "#file_field" do
-    field = String.build { |s| ViewModel::FormBuilder.new(s, :test).file_field(:file_field, {"class" => klass}) }
+  describe "#file_field" do
+    field = String.build { |s| build_form(s).file_field(:file_field, {"class" => klass}) }
+
     it "renders id" do
       field.should match(/id="test_file_field_id"/)
     end
@@ -138,8 +158,9 @@ describe ViewModel::FormBuilder do
     end
   end
 
-  context "#password_field" do
-    field = String.build { |s| ViewModel::FormBuilder.new(s, :test).password_field(:password_field, {"class" => klass}) }
+  describe "#password_field" do
+    field = String.build { |s| build_form(s).password_field(:password_field, {"class" => klass}) }
+
     it "renders id" do
       field.should match(/id="test_password_field_id"/)
     end
@@ -157,8 +178,9 @@ describe ViewModel::FormBuilder do
     end
   end
 
-  context "#text_area" do
-    field = String.build { |s| ViewModel::FormBuilder.new(s, :test).text_area(:area_field, value, {"class" => klass}) }
+  describe "#text_area_field" do
+    field = String.build { |s| build_form(s).text_area_field(:area_field, value, {"class" => klass}) }
+
     it "renders id" do
       field.should match(/id="test_area_field_id"/)
     end
@@ -176,12 +198,13 @@ describe ViewModel::FormBuilder do
     end
 
     it "renders tag" do
-      field.should match(/<text_area.*>/)
+      field.should match(/<textarea.*>/)
     end
   end
 
-  context "#checkbox_field" do
-    field = String.build { |s| ViewModel::FormBuilder.new(s, :test).checkbox_field(:checkbox_field, true, {"class" => klass}) }
+  describe "#checkbox_field" do
+    field = String.build { |s| build_form(s).checkbox_field(:checkbox_field, true, {"class" => klass}) }
+
     it "renders id" do
       field.should match(/id="test_checkbox_field_id"/)
     end
@@ -203,8 +226,9 @@ describe ViewModel::FormBuilder do
     end
   end
 
-  context "#radio_field" do
-    field = String.build { |s| ViewModel::FormBuilder.new(s, :test).radio_field(:radio_field, true, {"class" => klass}) }
+  describe "#radio_field" do
+    field = String.build { |s| build_form(s).radio_field(:radio_field, true, {"class" => klass}) }
+
     it "renders id" do
       field.should match(/id="test_radio_field_id"/)
     end
@@ -226,72 +250,33 @@ describe ViewModel::FormBuilder do
     end
   end
 
-  context "#date_field" do
-    field = String.build { |s| ViewModel::FormBuilder.new(s, :test).date_field(:date_field, "10/10/10", {"class" => klass}) }
-    it "renders id" do
-      field.should match(/id="test_date_field_id"/)
-    end
+  describe "#date_field" do
+    field = String.build { |s| build_form(s).date_field(:date_field, "10/10/10", {"class" => klass}) }
 
-    it "renders value" do
-      field.should match(Regex.new("value=\"10/10/10\""))
-    end
-
-    it "renders name" do
-      field.should match(/name="test\[date_field\]"/)
-    end
+    behaves_like_form_input(:date_field, "10/10/10", :date)
 
     it "renders given html options" do
       field.should match(Regex.new("class=\"#{klass}\""))
-    end
-
-    it "renders tag" do
-      field.should match(/<input type="date".*\/>/)
     end
   end
 
-  context "#time_field" do
-    field = String.build { |s| ViewModel::FormBuilder.new(s, :test).time_field(:time_field, "11:11", {"class" => klass}) }
-    it "renders id" do
-      field.should match(/id="test_time_field_id"/)
-    end
+  describe "#time_field" do
+    field = String.build { |s| build_form(s).time_field(:time_field, "11:11", {"class" => klass}) }
 
-    it "renders value" do
-      field.should match(Regex.new("value=\"11:11\""))
-    end
-
-    it "renders name" do
-      field.should match(/name="test\[time_field\]"/)
-    end
+    behaves_like_form_input(:time_field, "11:11", :time)
 
     it "renders given html options" do
       field.should match(Regex.new("class=\"#{klass}\""))
-    end
-
-    it "renders tag" do
-      field.should match(/<input type="time".*\/>/)
     end
   end
 
-  context "#number_field" do
-    field = String.build { |s| ViewModel::FormBuilder.new(s, :test).number_field(:number_field, 2, {"class" => klass}) }
-    it "renders id" do
-      field.should match(/id="test_number_field_id"/)
-    end
+  describe "#number_field" do
+    field = String.build { |s| build_form(s).number_field(:number_field, 2, {"class" => klass}) }
 
-    it "renders value" do
-      field.should match(Regex.new("value=\"#{2}\""))
-    end
-
-    it "renders name" do
-      field.should match(/name="test\[number_field\]"/)
-    end
+    behaves_like_form_input(:number_field, 2, :number)
 
     it "renders given html options" do
       field.should match(Regex.new("class=\"#{klass}\""))
-    end
-
-    it "renders tag" do
-      field.should match(/<input type="number".*\/>/)
     end
   end
 end
